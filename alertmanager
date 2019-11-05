@@ -1,0 +1,43 @@
+import requests
+
+ALERT_MANAGER_URL = 'http://<prometheus_url>:9093/api/v1/alerts'
+
+def alertmanager(alertname, receiver, severity, datacenter, service, summary):
+    try:
+
+        headers = {
+            'content-type': "application/json",
+            'cache-control': "no-cache",
+        }
+        data = "[{{\"labels\":" \
+               "{{\"alertname\":\"{alertname}\"," \
+               "\"receiver\":\"{receiver}\"," \
+               "\"k8scluster\":\"non-k8s\"," \
+               "\"kubernetes_namespace\":\"non-k8s\"," \
+               "\"severity\":\"{severity}\"," \
+               "\"datacenter\":\"{datacenter}\"," \
+               "\"lp_service\":\"{lp_service}\"}}," \
+               "\"annotations\":" \
+               "{{\"summary\":\"{summary}\"," \
+               "\"Arbitrary\":\"RunsFromAlertManagerAPI\"}}," \
+               "\"generatorURL\":\"http:\/\/localhost\/apitest\"}}]".format(alertname=alertname,
+                                                                           receiver=receiver,
+                                                                           severity=severity,
+                                                                           datacenter=datacenter,
+                                                                           service=service,
+                                                                           summary=summary)
+        response = requests.post(ALERT_MANAGER_URL, data=data, verify=False, headers=headers)
+        retries = 1
+        while response.status_code != 201 and retries < 4:
+            response = requests.post(ALERT_MANAGER_URL, data=str(data),
+                                         verify=False)
+            retries += 1
+        if response.status_code != 201:
+            response = response.json()
+            return response
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print('Error: Unable to connect with api')
+        return False
+    except Exception as e:
+        return False
